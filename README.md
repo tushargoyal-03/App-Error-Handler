@@ -14,7 +14,9 @@ re-create the same 10 files again.
 ```yaml
 dependencies:
   error_handling:
-    path: ../error_handling      # or git: url
+    url: https://github.com/tushargoyal-03/App-Error-Handler.git
+    ref: main 
+
 ```
 
 ## main.dart
