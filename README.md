@@ -8,7 +8,7 @@ Production-ready error handling for Flutter: typed failures, `Result<T>`, Dio in
 dependencies:
   app_error_kit:
     git:
-      url: https://github.com/yourusername/app_error_kit.git
+      url: https://github.com/tushargoyal-03/App-Error-Handler
       ref: v1.0.0
 ```
 
