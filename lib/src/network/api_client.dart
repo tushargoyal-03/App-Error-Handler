@@ -8,7 +8,7 @@ import '../result/result.dart';
 ///
 /// Every call returns `Result<T>` — repositories never need `try/catch`.
 /// Errors are converted to typed [AppFailure]s via [ErrorMapper], so the UI
-/// can `switch` exhaustively.
+/// can `switch` exhaustively. **No method here ever throws.**
 ///
 /// ```dart
 /// final result = await api.get<User>(
@@ -23,8 +23,10 @@ import '../result/result.dart';
 class ApiClient {
   final Dio _dio;
 
-  /// Optional hook fired for every failure — handy for global logging or
-  /// analytics. Will *not* replace the `Failure` returned to the caller.
+  /// Optional hook fired for every failure (except cancellations) — handy
+  /// for global logging, analytics or forcing logout on
+  /// [UnauthorizedFailure]. Will *not* replace the `Failure` returned to the
+  /// caller. Exceptions thrown by the hook are swallowed.
   final void Function(AppFailure failure)? onFailure;
 
   ApiClient(this._dio, {this.onFailure});
@@ -47,57 +49,21 @@ class ApiClient {
     ProgressCallback? onSendProgress,
     ProgressCallback? onReceiveProgress,
     Options? options,
-  }) async {
-    try {
-      final response = await _dio.request<dynamic>(
-        path,
-        data: body,
-        queryParameters: query,
-        cancelToken: cancelToken,
-        onSendProgress: onSendProgress,
-        onReceiveProgress: onReceiveProgress,
-        options: (options ?? Options()).copyWith(
-          method: method,
-          headers: {...?options?.headers, ...?headers},
-        ),
-      );
-
-      // Dio was configured to throw on non-2xx, but if a caller overrode
-      // validateStatus, guard here anyway.
-      final status = response.statusCode ?? 0;
-      if (status < 200 || status >= 300) {
-        final failure = ErrorMapper.fromResponse(
-          status,
-          _stringifyBody(response.data),
-          correlationId: _correlationId(response),
-        );
-        onFailure?.call(failure);
-        return Failure(failure);
-      }
-
-      // No parser → cast the raw JSON to T.
-      if (parser == null) {
-        return Success(response.data as T);
-      }
-
-      // Parser errors (bad JSON shape, type mismatch) become ParsingFailure.
-      try {
-        return Success(parser(response.data));
-      } catch (e, st) {
-        final failure = ErrorMapper.fromException(e, st);
-        onFailure?.call(failure);
-        return Failure(failure);
-      }
-    } on DioException catch (e) {
-      final failure = ErrorMapper.fromDio(e);
-      onFailure?.call(failure);
-      return Failure(failure);
-    } catch (e, st) {
-      final failure = ErrorMapper.fromException(e, st);
-      onFailure?.call(failure);
-      return Failure(failure);
-    }
-  }
+  }) => _execute<T>(
+    () => _dio.request<dynamic>(
+      path,
+      data: body,
+      queryParameters: query,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+      options: (options ?? Options()).copyWith(
+        method: method,
+        headers: {...?options?.headers, ...?headers},
+      ),
+    ),
+    parser,
+  );
 
   // ---------------------------------------------------------------------------
   // Convenience methods
@@ -109,14 +75,16 @@ class ApiClient {
     Map<String, dynamic>? headers,
     T Function(dynamic json)? parser,
     CancelToken? cancelToken,
+    ProgressCallback? onReceiveProgress,
     Options? options,
-  }) => request(
+  }) => request<T>(
     path: path,
     method: 'GET',
     query: query,
     headers: headers,
     parser: parser,
     cancelToken: cancelToken,
+    onReceiveProgress: onReceiveProgress,
     options: options,
   );
 
@@ -128,8 +96,9 @@ class ApiClient {
     T Function(dynamic json)? parser,
     CancelToken? cancelToken,
     ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
     Options? options,
-  }) => request(
+  }) => request<T>(
     path: path,
     method: 'POST',
     body: body,
@@ -138,6 +107,7 @@ class ApiClient {
     parser: parser,
     cancelToken: cancelToken,
     onSendProgress: onSendProgress,
+    onReceiveProgress: onReceiveProgress,
     options: options,
   );
 
@@ -149,8 +119,9 @@ class ApiClient {
     T Function(dynamic json)? parser,
     CancelToken? cancelToken,
     ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
     Options? options,
-  }) => request(
+  }) => request<T>(
     path: path,
     method: 'PUT',
     body: body,
@@ -159,6 +130,7 @@ class ApiClient {
     parser: parser,
     cancelToken: cancelToken,
     onSendProgress: onSendProgress,
+    onReceiveProgress: onReceiveProgress,
     options: options,
   );
 
@@ -170,8 +142,9 @@ class ApiClient {
     T Function(dynamic json)? parser,
     CancelToken? cancelToken,
     ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
     Options? options,
-  }) => request(
+  }) => request<T>(
     path: path,
     method: 'PATCH',
     body: body,
@@ -180,6 +153,7 @@ class ApiClient {
     parser: parser,
     cancelToken: cancelToken,
     onSendProgress: onSendProgress,
+    onReceiveProgress: onReceiveProgress,
     options: options,
   );
 
@@ -191,7 +165,7 @@ class ApiClient {
     T Function(dynamic json)? parser,
     CancelToken? cancelToken,
     Options? options,
-  }) => request(
+  }) => request<T>(
     path: path,
     method: 'DELETE',
     body: body,
@@ -209,67 +183,103 @@ class ApiClient {
     T Function(dynamic json)? parser,
     CancelToken? cancelToken,
     ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
     Map<String, dynamic>? headers,
     Options? options,
-  }) async {
-    try {
-      final response = await _dio.post<dynamic>(
-        path,
-        data: formData,
-        cancelToken: cancelToken,
-        onSendProgress: onSendProgress,
-        options: (options ?? Options()).copyWith(
-          headers: {...?options?.headers, ...?headers},
-        ),
-      );
+  }) => _execute<T>(
+    () => _dio.post<dynamic>(
+      path,
+      data: formData,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+      options: (options ?? Options()).copyWith(
+        headers: {...?options?.headers, ...?headers},
+      ),
+    ),
+    parser,
+  );
 
+  // ---------------------------------------------------------------------------
+  // Shared pipeline
+  // ---------------------------------------------------------------------------
+
+  Future<Result<T>> _execute<T>(
+    Future<Response<dynamic>> Function() send,
+    T Function(dynamic json)? parser,
+  ) async {
+    try {
+      final response = await send();
+
+      // Dio is configured to throw on non-2xx, but if a caller overrode
+      // validateStatus, guard here anyway.
       final status = response.statusCode ?? 0;
       if (status < 200 || status >= 300) {
-        final failure = ErrorMapper.fromResponse(
-          status,
-          _stringifyBody(response.data),
-          correlationId: _correlationId(response),
+        return _fail<T>(
+          ErrorMapper.fromResponse(
+            status,
+            response.data,
+            correlationId: _correlationId(response),
+          ),
         );
-        onFailure?.call(failure);
-        return Failure(failure);
       }
 
-      if (parser == null) return Success(response.data as T);
+      final data = response.data;
+
+      // No parser → hand back the raw JSON, type-checked.
+      if (parser == null) {
+        if (data is T) return Success<T>(data);
+        return _fail<T>(
+          ParsingFailure(
+            'Unexpected response type: expected $T, got ${data.runtimeType}',
+          ).withContext(correlationId: _correlationId(response)),
+        );
+      }
+
+      // ANY parser error (bad shape, null cast, custom exception) is a
+      // ParsingFailure — not "Unknown".
       try {
-        return Success(parser(response.data));
+        return Success<T>(parser(data));
       } catch (e, st) {
-        final failure = ErrorMapper.fromException(e, st);
-        onFailure?.call(failure);
-        return Failure(failure);
+        return _fail<T>(
+          ParsingFailure(
+            'Failed to parse response: ${_brief(e)}',
+            st,
+          ).withContext(cause: e, correlationId: _correlationId(response)),
+        );
       }
     } on DioException catch (e) {
-      final failure = ErrorMapper.fromDio(e);
-      onFailure?.call(failure);
-      return Failure(failure);
+      return _fail<T>(ErrorMapper.fromDio(e));
     } catch (e, st) {
-      final failure = ErrorMapper.fromException(e, st);
-      onFailure?.call(failure);
-      return Failure(failure);
+      return _fail<T>(ErrorMapper.fromException(e, st));
     }
+  }
+
+  Result<T> _fail<T>(AppFailure failure) {
+    if (failure is! CancelledFailure) {
+      try {
+        onFailure?.call(failure);
+      } catch (_) {
+        // A broken hook must never break the Result contract.
+      }
+    }
+    return Failure<T>(failure);
   }
 
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
 
-  String _stringifyBody(dynamic body) {
-    if (body == null) return '';
-    if (body is String) return body;
-    try {
-      return body.toString();
-    } catch (_) {
-      return '';
-    }
+  String _brief(Object e) {
+    final s = ErrorMapper.safeToString(e);
+    return s.length > 300 ? '${s.substring(0, 300)}…' : s;
   }
 
   String? _correlationId(Response<dynamic> response) {
     try {
-      return response.headers.value('x-correlation-id');
+      return response.headers.value(ErrorMapper.correlationHeader) ??
+          response.requestOptions.headers[ErrorMapper.correlationHeader]
+              ?.toString();
     } catch (_) {
       return null;
     }

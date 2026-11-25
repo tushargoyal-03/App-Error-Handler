@@ -1,3 +1,11 @@
+/// Global, project-independent error handling for Flutter.
+///
+/// * [AppFailure] — sealed, typed failures (exhaustive `switch`).
+/// * [Result] — `Success` / `Failure` with `fold`, `map`, `guard`, ...
+/// * [ErrorMapper] — Dio / dart:io / HTTP body → [AppFailure].
+/// * [DioFactory] + [ApiClient] — ready-made networking that never throws.
+/// * [ErrorKit] — one-call bootstrap with global crash hooks.
+// ignore_for_file: unnecessary_library_name
 library error_handling;
 
 // Failures
