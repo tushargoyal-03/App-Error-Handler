@@ -312,6 +312,13 @@ void main() {
       const ParsingFailure(),
       const LocalStorageFailure(),
       const UnknownFailure(),
+      // Device / Location / HRMS-specific
+      const OutOfRadiusFailure(),
+      const OutOfRadiusFailure('Outside', 350.5),
+      const DeviceIntegrityFailure(),
+      const LocationPermissionFailure(),
+      const LocationPermissionFailure(isPermanentlyDenied: true),
+      const LocationServiceFailure(),
     ];
 
     for (final f in allFailures) {

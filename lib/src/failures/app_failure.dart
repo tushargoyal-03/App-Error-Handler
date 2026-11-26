@@ -50,6 +50,12 @@ sealed class AppFailure implements Exception {
   bool get isRetryable => switch (this) {
     NetworkFailure() || TimeoutFailure() || RateLimitedFailure() => true,
     ServerFailure(:final statusCode) => (statusCode ?? 0) >= 500,
+    // Device / location failures are never retryable automatically.
+    OutOfRadiusFailure() ||
+    DeviceIntegrityFailure() ||
+    LocationPermissionFailure() ||
+    LocationServiceFailure() =>
+      false,
     _ => false,
   };
 
@@ -397,6 +403,129 @@ final class RateLimitedFailure extends AppFailure {
     correlationId: correlationId,
     cause: cause,
     retryAfter: retryAfter,
+  );
+}
+
+// ---------- Device / Location / HRMS-specific ----------
+
+/// Thrown when the user is physically outside the allowed office radius.
+/// The UI should show an "Outside Office" sheet instead of a generic error.
+final class OutOfRadiusFailure extends AppFailure {
+  /// Distance from the office in metres (optional — for display/logging).
+  final double? distanceMeters;
+
+  const OutOfRadiusFailure([
+    String message = 'You are outside the office radius. Please move closer.',
+    this.distanceMeters,
+  ]) : super(message);
+
+  const OutOfRadiusFailure._full(
+    super.message, {
+    super.stackTrace,
+    super.correlationId,
+    super.cause,
+    this.distanceMeters,
+  });
+
+  @override
+  AppFailure copyWithContext({
+    StackTrace? stackTrace,
+    String? correlationId,
+    Object? cause,
+  }) => OutOfRadiusFailure._full(
+    message,
+    stackTrace: stackTrace,
+    correlationId: correlationId,
+    cause: cause,
+    distanceMeters: distanceMeters,
+  );
+}
+
+/// Thrown when the device appears to be rooted, jailbroken, or running a
+/// mocked/fake GPS. The UI should block the action entirely.
+final class DeviceIntegrityFailure extends AppFailure {
+  const DeviceIntegrityFailure([
+    String message =
+        'Device integrity check failed. Rooted devices or mock GPS are not allowed.',
+  ]) : super(message);
+
+  const DeviceIntegrityFailure._full(
+    super.message, {
+    super.stackTrace,
+    super.correlationId,
+    super.cause,
+  });
+
+  @override
+  AppFailure copyWithContext({
+    StackTrace? stackTrace,
+    String? correlationId,
+    Object? cause,
+  }) => DeviceIntegrityFailure._full(
+    message,
+    stackTrace: stackTrace,
+    correlationId: correlationId,
+    cause: cause,
+  );
+}
+
+/// Thrown when location permission is denied or permanently denied.
+/// The UI should show a permission rationale / settings redirect.
+final class LocationPermissionFailure extends AppFailure {
+  /// Whether the permission was permanently denied (requires settings redirect).
+  final bool isPermanentlyDenied;
+
+  const LocationPermissionFailure({
+    String message = 'Location permission is required to mark attendance.',
+    this.isPermanentlyDenied = false,
+  }) : super(message);
+
+  const LocationPermissionFailure._full(
+    super.message, {
+    super.stackTrace,
+    super.correlationId,
+    super.cause,
+    required this.isPermanentlyDenied,
+  });
+
+  @override
+  AppFailure copyWithContext({
+    StackTrace? stackTrace,
+    String? correlationId,
+    Object? cause,
+  }) => LocationPermissionFailure._full(
+    message,
+    stackTrace: stackTrace,
+    correlationId: correlationId,
+    cause: cause,
+    isPermanentlyDenied: isPermanentlyDenied,
+  );
+}
+
+/// Thrown when the GPS/location service itself is disabled on the device.
+final class LocationServiceFailure extends AppFailure {
+  const LocationServiceFailure([
+    String message =
+        'Location services are disabled. Please enable GPS and try again.',
+  ]) : super(message);
+
+  const LocationServiceFailure._full(
+    super.message, {
+    super.stackTrace,
+    super.correlationId,
+    super.cause,
+  });
+
+  @override
+  AppFailure copyWithContext({
+    StackTrace? stackTrace,
+    String? correlationId,
+    Object? cause,
+  }) => LocationServiceFailure._full(
+    message,
+    stackTrace: stackTrace,
+    correlationId: correlationId,
+    cause: cause,
   );
 }
 

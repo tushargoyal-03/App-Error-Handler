@@ -53,5 +53,19 @@ extension FailureMessages on AppFailure {
       'Something went wrong on our end. Please try again later.',
     ServerFailure(:final message) => message, // 4xx is usually safe
     UnknownFailure() => 'Something went wrong. Please try again.',
+    // ── Device / Location / HRMS-specific ──
+    OutOfRadiusFailure() =>
+      'You are outside the allowed office radius. '
+          'Please move to your office location and try again.',
+    DeviceIntegrityFailure() =>
+      'This action cannot be completed on a rooted device or '
+          'with mock GPS enabled.',
+    LocationPermissionFailure(:final isPermanentlyDenied) =>
+      isPermanentlyDenied
+          ? 'Location permission is permanently denied. '
+              'Please enable it from Settings to continue.'
+          : 'Location permission is required. Please allow it and try again.',
+    LocationServiceFailure() =>
+      'GPS is turned off. Please enable Location Services and try again.',
   };
 }

@@ -79,15 +79,20 @@ class ErrorMapper {
   // ---------- HTTP responses (any transport) ----------
 
   /// [body] may be the raw `String`, an already-decoded `Map`/`List`, or null.
+  ///
+  /// [fallback] is used as the error message when the backend body contains no
+  /// recognisable message text. Pass a feature-specific string to give users
+  /// a more meaningful error (e.g. `'Attendance marking failed.'`).
   static AppFailure fromResponse(
     int statusCode,
     Object? body, {
     String? correlationId,
     StackTrace? stackTrace,
     Duration? retryAfter,
+    String? fallback,
   }) {
     try {
-      final parsed = _parseBody(statusCode, body);
+      final parsed = _parseBody(statusCode, body, fallback: fallback);
       final message = parsed.message;
       final correlation = correlationId ?? parsed.correlationId;
 
@@ -225,14 +230,17 @@ class ErrorMapper {
 
   // ---------- Body parsing ----------
 
-  static _ParsedBody _parseBody(int status, Object? body) {
-    final fallback = 'Something went wrong (Code: $status)';
+  static _ParsedBody _parseBody(int status, Object? body, {String? fallback}) {
+    final defaultFallback =
+        (fallback != null && fallback.trim().isNotEmpty)
+            ? fallback.trim()
+            : 'Something went wrong (Code: $status)';
     Object? decoded = body;
     String? text;
 
     if (body is String) {
       final trimmed = body.trim();
-      if (trimmed.isEmpty) return _ParsedBody(fallback);
+      if (trimmed.isEmpty) return _ParsedBody(defaultFallback);
       try {
         decoded = jsonDecode(trimmed);
       } catch (_) {
@@ -249,7 +257,7 @@ class ErrorMapper {
       final map = _stringKeyed(decoded);
       final extracted = _extractMessage(map);
       return _ParsedBody(
-        extracted?.text ?? fallback,
+        extracted?.text ?? defaultFallback,
         fieldErrors: _extractFieldErrors(map),
         correlationId: (map['correlationId'] ?? map['correlation_id'])
             ?.toString(),
@@ -266,24 +274,48 @@ class ErrorMapper {
         !text.startsWith('<')) {
       return _ParsedBody(text);
     }
-    return _ParsedBody(fallback);
+    return _ParsedBody(defaultFallback);
   }
 
   static Map<String, dynamic> _stringKeyed(Map<dynamic, dynamic> m) =>
       m.map<String, dynamic>((k, v) => MapEntry(k.toString(), v));
 
-  /// Understands `{message: "x"}`, `{message: ["a","b"]}` (NestJS validation),
-  /// `{error: {message: "x"}}` and skips empty values.
+  /// Understands these message key patterns (in priority order):
+  ///
+  /// **Standard REST / RFC 7807:**
+  /// `message`, `error`, `detail`, `title`, `reason`, `error_description`
+  ///
+  /// **ASP.NET / HRMS variants (case-sensitive keys):**
+  /// `Message`, `responseMessage`, `ResultMessage`, `errorMessage`,
+  /// `ErrorMessage`, `ResponseMessage`
+  ///
+  /// **NestJS / Spring:**
+  /// `message: string[]` → joined with newline → `ValidationFailure`
+  ///
+  /// Also unwraps `{error: {message: "x"}}` nested objects.
   static ({String text, bool isList})? _extractMessage(
     Map<String, dynamic> m,
   ) {
     for (final key in const [
+      // ── Standard lowercase (most backends) ──
       'message',
       'error',
       'detail',
       'title',
       'reason',
       'error_description',
+      // ── ASP.NET / .NET Core / HRMS variants ──
+      'Message',
+      'responseMessage',
+      'ResponseMessage',
+      'ResultMessage',
+      'resultMessage',
+      'errorMessage',
+      'ErrorMessage',
+      // ── Other common variants ──
+      'msg',
+      'description',
+      'errMsg',
     ]) {
       final r = _stringify(m[key]);
       if (r != null) return r;
