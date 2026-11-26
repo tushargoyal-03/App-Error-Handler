@@ -39,7 +39,7 @@ extension FailureMessages on AppFailure {
           'network and your device date & time.',
     TimeoutFailure() => 'The request took too long. Please try again.',
     CancelledFailure() => 'Request was cancelled.',
-    UnauthorizedFailure() => 'Your session expired. Please sign in again.',
+    UnauthorizedFailure(:final message) => message,
     ForbiddenFailure() => "You don't have permission to perform this action.",
     NotFoundFailure() => 'The requested item could not be found.',
     ValidationFailure(:final message) => message, // safe to surface
