@@ -59,7 +59,8 @@ void main() {
     });
 
     test('Success<T> != Failure<T>', () {
-      expect(const Success<int>(0), isNot(const Failure<int>(NetworkFailure())));
+      expect(
+          const Success<int>(0), isNot(const Failure<int>(NetworkFailure())));
     });
 
     test('Success.toString includes the data', () {
@@ -237,7 +238,7 @@ void main() {
     test('custom mapError overrides default mapping', () async {
       final r = await Result.guard<int>(
         () async => throw const SocketException('no wifi'),
-        mapError: (_, __) => const UnauthorizedFailure('custom'),
+        mapError: (_, __) => const UnauthorizedFailure(),
       );
       expect(r.failureOrNull, isA<UnauthorizedFailure>());
       expect(r.failureOrNull!.message, 'custom');
@@ -265,20 +266,18 @@ void main() {
 
   group('App – ErrorHandler.handle()', () {
     test('maps SocketException → NetworkFailure', () async {
-      final f = await const ErrorHandler()
-          .handle(const SocketException('no route'));
+      final f =
+          await const ErrorHandler().handle(const SocketException('no route'));
       expect(f, isA<NetworkFailure>());
     });
 
     test('maps FormatException → ParsingFailure', () async {
-      final f = await const ErrorHandler()
-          .handle(const FormatException('bad'));
+      final f = await const ErrorHandler().handle(const FormatException('bad'));
       expect(f, isA<ParsingFailure>());
     });
 
     test('maps TimeoutException → TimeoutFailure', () async {
-      final f =
-          await const ErrorHandler().handle(TimeoutException('slow'));
+      final f = await const ErrorHandler().handle(TimeoutException('slow'));
       expect(f, isA<TimeoutFailure>());
     });
 
@@ -330,7 +329,8 @@ void main() {
       expect(gotMsg, contains('sign in'));
     });
 
-    test('CancelledFailure is ignored by default (no log, no onFailure)', () async {
+    test('CancelledFailure is ignored by default (no log, no onFailure)',
+        () async {
       var logged = 0;
       var fired = 0;
       final handler = ErrorHandler(

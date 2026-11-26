@@ -40,7 +40,8 @@ class ErrorMapper {
     final AppFailure failure;
     if (error is TlsException) {
       // HandshakeException is a TlsException.
-      failure = SecureConnectionFailure('Secure connection failed.', stackTrace);
+      failure =
+          SecureConnectionFailure('Secure connection failed.', stackTrace);
     } else if (error is SocketException) {
       failure = NetworkFailure(
         _orDefault(error.message, 'Network error.'),
@@ -104,22 +105,22 @@ class ErrorMapper {
             fieldErrors: parsed.fieldErrors,
             stackTrace: stackTrace,
           ),
-        401 => UnauthorizedFailure(message, stackTrace),
+        401 => const UnauthorizedFailure(),
         403 => ForbiddenFailure(message, stackTrace),
         404 => NotFoundFailure(message, stackTrace),
         409 => ConflictFailure(message, stackTrace),
         422 => ValidationFailure(
-          message,
-          fieldErrors: parsed.fieldErrors,
-          stackTrace: stackTrace,
-        ),
+            message,
+            fieldErrors: parsed.fieldErrors,
+            stackTrace: stackTrace,
+          ),
         429 => RateLimitedFailure(message, stackTrace, retryAfter),
         >= 400 && < 600 => ServerFailure(
-          message,
-          statusCode: statusCode,
-          fieldErrors: parsed.fieldErrors,
-          stackTrace: stackTrace,
-        ),
+            message,
+            statusCode: statusCode,
+            fieldErrors: parsed.fieldErrors,
+            stackTrace: stackTrace,
+          ),
         _ => UnknownFailure(message, stackTrace),
       };
 
@@ -161,7 +162,8 @@ class ErrorMapper {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return TimeoutFailure('The request timed out. Please try again.', stack);
+        return TimeoutFailure(
+            'The request timed out. Please try again.', stack);
       case DioExceptionType.connectionError:
         return NetworkFailure(
           'No internet connection. Please check your network.',
@@ -231,10 +233,9 @@ class ErrorMapper {
   // ---------- Body parsing ----------
 
   static _ParsedBody _parseBody(int status, Object? body, {String? fallback}) {
-    final defaultFallback =
-        (fallback != null && fallback.trim().isNotEmpty)
-            ? fallback.trim()
-            : 'Something went wrong (Code: $status)';
+    final defaultFallback = (fallback != null && fallback.trim().isNotEmpty)
+        ? fallback.trim()
+        : 'Something went wrong (Code: $status)';
     Object? decoded = body;
     String? text;
 
@@ -259,8 +260,8 @@ class ErrorMapper {
       return _ParsedBody(
         extracted?.text ?? defaultFallback,
         fieldErrors: _extractFieldErrors(map),
-        correlationId: (map['correlationId'] ?? map['correlation_id'])
-            ?.toString(),
+        correlationId:
+            (map['correlationId'] ?? map['correlation_id'])?.toString(),
         messageWasList: extracted?.isList ?? false,
       );
     }
@@ -331,9 +332,8 @@ class ErrorMapper {
     if (v is List) {
       final parts = <String>[];
       for (final e in v) {
-        final String? s = e is Map
-            ? _extractMessage(_stringKeyed(e))?.text
-            : e?.toString();
+        final String? s =
+            e is Map ? _extractMessage(_stringKeyed(e))?.text : e?.toString();
         if (s != null && s.trim().isNotEmpty) parts.add(s.trim());
       }
       return parts.isEmpty ? null : (text: parts.join('\n'), isList: true);
@@ -377,8 +377,8 @@ class ErrorMapper {
     final Iterable<Object?> items = v is Map
         ? v.values
         : v is List
-        ? v
-        : [v];
+            ? v
+            : [v];
     return items
         .where((e) => e != null)
         .map((e) => e.toString())

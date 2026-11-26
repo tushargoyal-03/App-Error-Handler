@@ -40,24 +40,25 @@ sealed class AppFailure implements Exception {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => copyWithContext(
-    stackTrace: stackTrace ?? this.stackTrace,
-    correlationId: correlationId ?? this.correlationId,
-    cause: cause ?? this.cause,
-  );
+  }) =>
+      copyWithContext(
+        stackTrace: stackTrace ?? this.stackTrace,
+        correlationId: correlationId ?? this.correlationId,
+        cause: cause ?? this.cause,
+      );
 
   /// Whether retrying the same request could plausibly succeed.
   bool get isRetryable => switch (this) {
-    NetworkFailure() || TimeoutFailure() || RateLimitedFailure() => true,
-    ServerFailure(:final statusCode) => (statusCode ?? 0) >= 500,
-    // Device / location failures are never retryable automatically.
-    OutOfRadiusFailure() ||
-    DeviceIntegrityFailure() ||
-    LocationPermissionFailure() ||
-    LocationServiceFailure() =>
-      false,
-    _ => false,
-  };
+        NetworkFailure() || TimeoutFailure() || RateLimitedFailure() => true,
+        ServerFailure(:final statusCode) => (statusCode ?? 0) >= 500,
+        // Device / location failures are never retryable automatically.
+        OutOfRadiusFailure() ||
+        DeviceIntegrityFailure() ||
+        LocationPermissionFailure() ||
+        LocationServiceFailure() =>
+          false,
+        _ => false,
+      };
 
   /// Value equality (stack trace and cause are intentionally ignored) so
   /// failures behave correctly inside Bloc/Cubit states.
@@ -82,7 +83,8 @@ sealed class AppFailure implements Exception {
       fe == null
           ? null
           : Object.hashAllUnordered(
-              fe.entries.map((e) => Object.hash(e.key, Object.hashAll(e.value))),
+              fe.entries
+                  .map((e) => Object.hash(e.key, Object.hashAll(e.value))),
             ),
     );
   }
@@ -128,12 +130,13 @@ final class NetworkFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => NetworkFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-  );
+  }) =>
+      NetworkFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
+      );
 }
 
 /// TLS / certificate problems — distinct from "no internet" so users get a
@@ -156,12 +159,13 @@ final class SecureConnectionFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => SecureConnectionFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-  );
+  }) =>
+      SecureConnectionFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
+      );
 }
 
 final class TimeoutFailure extends AppFailure {
@@ -182,12 +186,13 @@ final class TimeoutFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => TimeoutFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-  );
+  }) =>
+      TimeoutFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
+      );
 }
 
 final class CancelledFailure extends AppFailure {
@@ -208,12 +213,13 @@ final class CancelledFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => CancelledFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-  );
+  }) =>
+      CancelledFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
+      );
 }
 
 // ---------- HTTP status failures ----------
@@ -234,40 +240,57 @@ final class ServerFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => ServerFailure(
-    message,
-    statusCode: statusCode,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    fieldErrors: fieldErrors,
-    cause: cause,
-  );
+  }) =>
+      ServerFailure(
+        message,
+        statusCode: statusCode,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        fieldErrors: fieldErrors,
+        cause: cause,
+      );
 }
 
 final class UnauthorizedFailure extends AppFailure {
-  const UnauthorizedFailure([
-    String message = 'Session expired. Please log in again.',
-    StackTrace? stackTrace,
-  ]) : super(message, statusCode: 401, stackTrace: stackTrace);
-
-  const UnauthorizedFailure._full(
-    super.message, {
-    super.stackTrace,
-    super.correlationId,
-    super.cause,
-  }) : super(statusCode: 401);
-
-  @override
-  AppFailure copyWithContext({
+  const UnauthorizedFailure({
+    String message = 'Your session has expired. Please sign in again.',
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => UnauthorizedFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-  );
+  }) : super(
+          message,
+          statusCode: 401,
+          stackTrace: stackTrace,
+          correlationId: correlationId,
+          cause: cause,
+        );
+
+  /// Internal copy-constructor — preserves everything.
+  const UnauthorizedFailure._copy(
+    String message, {
+    StackTrace? stackTrace,
+    String? correlationId,
+    Object? cause,
+  }) : super(
+          message, // ✅ message explicitly forwarded
+          statusCode: 401,
+          stackTrace: stackTrace,
+          correlationId: correlationId,
+          cause: cause,
+        );
+
+  @override
+  UnauthorizedFailure copyWithContext({
+    StackTrace? stackTrace,
+    String? correlationId,
+    Object? cause,
+  }) =>
+      UnauthorizedFailure._copy(
+        message, // ✅ backend message preserved
+        stackTrace: stackTrace ?? this.stackTrace,
+        correlationId: correlationId ?? this.correlationId,
+        cause: cause ?? this.cause,
+      );
 }
 
 final class ForbiddenFailure extends AppFailure {
@@ -288,12 +311,13 @@ final class ForbiddenFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => ForbiddenFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-  );
+  }) =>
+      ForbiddenFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
+      );
 }
 
 final class NotFoundFailure extends AppFailure {
@@ -314,12 +338,13 @@ final class NotFoundFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => NotFoundFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-  );
+  }) =>
+      NotFoundFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
+      );
 }
 
 /// 422, or a 400 that carries validation messages (NestJS class-validator).
@@ -338,14 +363,15 @@ final class ValidationFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => ValidationFailure(
-    message,
-    statusCode: statusCode,
-    fieldErrors: fieldErrors,
-    correlationId: correlationId,
-    stackTrace: stackTrace,
-    cause: cause,
-  );
+  }) =>
+      ValidationFailure(
+        message,
+        statusCode: statusCode,
+        fieldErrors: fieldErrors,
+        correlationId: correlationId,
+        stackTrace: stackTrace,
+        cause: cause,
+      );
 }
 
 final class ConflictFailure extends AppFailure {
@@ -366,12 +392,13 @@ final class ConflictFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => ConflictFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-  );
+  }) =>
+      ConflictFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
+      );
 }
 
 /// 429 Too Many Requests. [retryAfter] is read from the `Retry-After` header.
@@ -397,13 +424,14 @@ final class RateLimitedFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => RateLimitedFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-    retryAfter: retryAfter,
-  );
+  }) =>
+      RateLimitedFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
+        retryAfter: retryAfter,
+      );
 }
 
 // ---------- Device / Location / HRMS-specific ----------
@@ -432,13 +460,14 @@ final class OutOfRadiusFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => OutOfRadiusFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-    distanceMeters: distanceMeters,
-  );
+  }) =>
+      OutOfRadiusFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
+        distanceMeters: distanceMeters,
+      );
 }
 
 /// Thrown when the device appears to be rooted, jailbroken, or running a
@@ -461,12 +490,13 @@ final class DeviceIntegrityFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => DeviceIntegrityFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-  );
+  }) =>
+      DeviceIntegrityFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
+      );
 }
 
 /// Thrown when location permission is denied or permanently denied.
@@ -493,13 +523,14 @@ final class LocationPermissionFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => LocationPermissionFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-    isPermanentlyDenied: isPermanentlyDenied,
-  );
+  }) =>
+      LocationPermissionFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
+        isPermanentlyDenied: isPermanentlyDenied,
+      );
 }
 
 /// Thrown when the GPS/location service itself is disabled on the device.
@@ -521,12 +552,13 @@ final class LocationServiceFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => LocationServiceFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-  );
+  }) =>
+      LocationServiceFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
+      );
 }
 
 // ---------- Local / parsing / unknown ----------
@@ -549,12 +581,13 @@ final class ParsingFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => ParsingFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-  );
+  }) =>
+      ParsingFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
+      );
 }
 
 final class LocalStorageFailure extends AppFailure {
@@ -575,12 +608,13 @@ final class LocalStorageFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => LocalStorageFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-  );
+  }) =>
+      LocalStorageFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
+      );
 }
 
 final class UnknownFailure extends AppFailure {
@@ -601,10 +635,11 @@ final class UnknownFailure extends AppFailure {
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
-  }) => UnknownFailure._full(
-    message,
-    stackTrace: stackTrace,
-    correlationId: correlationId,
-    cause: cause,
-  );
+  }) =>
+      UnknownFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
+      );
 }
