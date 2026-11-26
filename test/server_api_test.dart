@@ -435,6 +435,31 @@ void main() {
       );
       final r = await api.get<void>('/private');
       expect(r.failureOrNull, isA<UnauthorizedFailure>());
+      expect(r.failureOrNull!.message, 'Unauthorized');
+    });
+
+    test('401 preserves backend message through Dio client and withContext',
+        () async {
+      final api = _buildClient(
+        (_) async => _jsonBody(
+          {
+            'success': false,
+            'message': 'Invalid credentials. User not found in system.',
+          },
+          401,
+        ),
+      );
+      final r = await api.post<void>('/api/auth/login', body: {});
+      expect(r.failureOrNull, isA<UnauthorizedFailure>());
+      expect(
+        r.failureOrNull!.message,
+        'Invalid credentials. User not found in system.',
+      );
+      final enriched = r.failureOrNull!.withContext(correlationId: 'corr-123');
+      expect(
+        enriched.message,
+        'Invalid credentials. User not found in system.',
+      );
     });
 
     test('403 → ForbiddenFailure', () async {

@@ -238,7 +238,7 @@ void main() {
     test('custom mapError overrides default mapping', () async {
       final r = await Result.guard<int>(
         () async => throw const SocketException('no wifi'),
-        mapError: (_, __) => const UnauthorizedFailure(),
+        mapError: (_, __) => const UnauthorizedFailure('custom'),
       );
       expect(r.failureOrNull, isA<UnauthorizedFailure>());
       expect(r.failureOrNull!.message, 'custom');

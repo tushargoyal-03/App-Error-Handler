@@ -105,7 +105,7 @@ class ErrorMapper {
             fieldErrors: parsed.fieldErrors,
             stackTrace: stackTrace,
           ),
-        401 => const UnauthorizedFailure(),
+        401 => UnauthorizedFailure(message, stackTrace),
         403 => ForbiddenFailure(message, stackTrace),
         404 => NotFoundFailure(message, stackTrace),
         409 => ConflictFailure(message, stackTrace),

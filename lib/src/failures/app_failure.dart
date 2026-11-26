@@ -252,44 +252,29 @@ final class ServerFailure extends AppFailure {
 }
 
 final class UnauthorizedFailure extends AppFailure {
-  const UnauthorizedFailure({
+  const UnauthorizedFailure([
     String message = 'Your session has expired. Please sign in again.',
     StackTrace? stackTrace,
-    String? correlationId,
-    Object? cause,
-  }) : super(
-          message,
-          statusCode: 401,
-          stackTrace: stackTrace,
-          correlationId: correlationId,
-          cause: cause,
-        );
+  ]) : super(message, statusCode: 401, stackTrace: stackTrace);
 
-  /// Internal copy-constructor — preserves everything.
-  const UnauthorizedFailure._copy(
-    String message, {
-    StackTrace? stackTrace,
-    String? correlationId,
-    Object? cause,
-  }) : super(
-          message, // ✅ message explicitly forwarded
-          statusCode: 401,
-          stackTrace: stackTrace,
-          correlationId: correlationId,
-          cause: cause,
-        );
+  const UnauthorizedFailure._full(
+    super.message, {
+    super.stackTrace,
+    super.correlationId,
+    super.cause,
+  }) : super(statusCode: 401);
 
   @override
-  UnauthorizedFailure copyWithContext({
+  AppFailure copyWithContext({
     StackTrace? stackTrace,
     String? correlationId,
     Object? cause,
   }) =>
-      UnauthorizedFailure._copy(
-        message, // ✅ backend message preserved
-        stackTrace: stackTrace ?? this.stackTrace,
-        correlationId: correlationId ?? this.correlationId,
-        cause: cause ?? this.cause,
+      UnauthorizedFailure._full(
+        message,
+        stackTrace: stackTrace,
+        correlationId: correlationId,
+        cause: cause,
       );
 }
 
